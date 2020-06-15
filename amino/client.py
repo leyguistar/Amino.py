@@ -8,6 +8,7 @@ from .lib.util import exceptions, headers, device, objects
 from .socket import Callbacks, SocketHandler
 
 device = device.DeviceGenerator()
+clientId = None
 
 class Client:
     def __init__(self, callback=Callbacks, socket_trace=False):
@@ -250,7 +251,7 @@ class Client:
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
-    def edit_profile(self, nickname: str = None, content: str = None, icon: str = None):
+    def edit_profile(self, nickname: str = None, content: str = None, icon: str = None, backgroundImage: str = None):
         data = {
             "address": None,
             "latitude": 0,
@@ -263,6 +264,7 @@ class Client:
         if nickname: data["nickname"] = nickname
         if icon: data["icon"] = icon
         if content: data["content"] = content
+        if backgroundImage: data["extensions"] = {"style": {"backgroundMediaList": [[100, backgroundImage, None, None, None]]}}
 
         data = json.dumps(data)
         response = requests.post(f"{self.api}/g/s/user-profile/{self.userId}", headers=headers.Headers(data=data).headers, data=data)
@@ -280,6 +282,18 @@ class Client:
 
         data = json.dumps(data)
         response = requests.post(f"{self.api}/g/s/account/visit-settings", headers=headers.Headers(data=data).headers, data=data)
+        if self.authenticated is False: raise exceptions.NotLoggedIn
+        if response.status_code != 200: return json.loads(response.text)
+        else: return response.status_code
+
+    def set_amino_id(self, aminoId: str):
+        data = {
+            "aminoId": aminoId,
+            "timestamp": int(timestamp() * 1000)
+        }
+
+        data = json.dumps(data)
+        response = requests.post(f"{self.api}/g/s/account/change-amino-id", headers=headers.Headers(data=data).headers, data=data)
         if self.authenticated is False: raise exceptions.NotLoggedIn
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code

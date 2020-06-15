@@ -1900,6 +1900,7 @@ class messageList:
             except (KeyError, TypeError): self.originalStickerId.append(None)
             try: self.sticker.append(sticker(self.json["extensions"]["sticker"]).sticker)
             except (KeyError, TypeError): self.sticker.append(None)
+
             try: self.author.append(userProfile(self.json["author"]).userProfile)
             except (KeyError, TypeError): self.author.append(None)
 

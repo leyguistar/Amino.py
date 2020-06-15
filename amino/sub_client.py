@@ -13,13 +13,13 @@ device = device.DeviceGenerator()
 headers.sid = client.Client().sid
 
 class SubClient(client.Client):
-    def __init__(self, comId: str):
+    def __init__(self, comId: str, profile: str):
         client.Client.__init__(self)
 
         if not community and not comId:
             raise exceptions.NoCommunity
 
-        self.userId = client.Client().userId
+        self.profile = profile
         self.comId = comId
 
     def post_blog(self, title: str, content: str, categoriesList: list = None, backgroundColor: str = None, images: list = None, fansOnly: bool = False):
@@ -161,11 +161,11 @@ class SubClient(client.Client):
         if content: data["content"] = content
         if mediaList: data["mediaList"] = mediaList
         if chatRequestPrivilege: data["extensions"] = {"privilegeOfChatInviteRequest": chatRequestPrivilege}
-        if backgroundImage: data["extensions"] = {"style": {"backgroundMediaList": [[100, backgroundImage, None, None, None, {}]]}}
+        if backgroundImage: data["extensions"] = {"style": {"backgroundMediaList": [[100, backgroundImage, None, None, None]]}}
         if backgroundColor: data["extensions"] = {"style": {"backgroundColor": backgroundColor}}
 
         data = json.dumps(data)
-        response = requests.post(f"{self.api}/x{self.comId}/s/user-profile/{self.userId}", headers=headers.Headers(data=data).headers, data=data)
+        response = requests.post(f"{self.api}/x{self.comId}/s/user-profile/{self.profile.id}", headers=headers.Headers(data=data).headers, data=data)
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
@@ -341,7 +341,7 @@ class SubClient(client.Client):
             "timestamp": int(timestamp() * 1000)
         })
 
-        response = requests.post(f"{self.api}/x{self.comId}/s/user-profile/{self.userId}/online-status", headers=headers.Headers(data=data).headers, data=data)
+        response = requests.post(f"{self.api}/x{self.comId}/s/user-profile/{self.profile.id}/online-status", headers=headers.Headers(data=data).headers, data=data)
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
@@ -455,7 +455,7 @@ class SubClient(client.Client):
         else: return response.status_code
 
     def unfollow(self, userId: str):
-        response = requests.delete(f"{self.api}/x{self.comId}/s/user-profile/{self.userId}/joined/{userId}", headers=headers.Headers().headers)
+        response = requests.delete(f"{self.api}/x{self.comId}/s/user-profile/{self.profile.id}/joined/{userId}", headers=headers.Headers().headers)
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
@@ -593,7 +593,7 @@ class SubClient(client.Client):
 
         if backgroundImage:
             data = json.dumps({"media": [100, backgroundImage, None], "timestamp": int(timestamp() * 1000)})
-            response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/member/{self.userId}/background", data=data, headers=headers.Headers(data=data).headers)
+            response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/member/{self.profile.id}/background", data=data, headers=headers.Headers(data=data).headers)
             if response.status_code != 200: return json.loads(response.text)
             else: pass
 
@@ -659,12 +659,12 @@ class SubClient(client.Client):
         else: return response.status_code
 
     def join_chat(self, chatId: str):
-        response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/member/{self.userId}", headers=headers.Headers().headers)
+        response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/member/{self.profile.id}", headers=headers.Headers().headers)
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
     def leave_chat(self, chatId: str):
-        response = requests.delete(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/member/{self.userId}", headers=headers.Headers().headers)
+        response = requests.delete(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/member/{self.profile.id}", headers=headers.Headers().headers)
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
@@ -883,7 +883,7 @@ class SubClient(client.Client):
     def get_recent_blogs(self, start: int = 0, size: int = 25):
         response = requests.get(f"{self.api}/x{self.comId}/s/feed/blog-all?pagingType=t&start={start}&size={size}", headers=headers.Headers().headers)
         if response.status_code != 200: return json.loads(response.text)
-        return objects.blogCategoryList(json.loads(response.text)["blogList"]).blogCategoryList
+        return objects.blogList(json.loads(response.text)["blogList"]).blogList
 
     def get_chat_users(self, chatId: str, start: int = 0, size: int = 25):
         response = requests.get(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/member?start={start}&size={size}&type=default&cv=1.2", headers=headers.Headers().headers)
