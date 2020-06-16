@@ -1,5 +1,0 @@
-setuptools
-requests
-six
-websocket-client
-ffmpeg-python
