@@ -893,7 +893,7 @@ class SubClient(client.Client):
     def get_notifications(self, start: int = 0, size: int = 25):
         response = requests.get(f"{self.api}/x{self.comId}/s/notification?pagingType=t&start={start}&size={size}", headers=headers.Headers().headers)
         if response.status_code != 200: return json.loads(response.text)
-        return objects.notificaionList(json.loads(response.text)["notificationList"]).notificaionList
+        return objects.notificationList(json.loads(response.text)["notificationList"]).notificationList
 
     # TODO : Get notice to finish this
     def get_notices(self, start: int = 0, size: int = 25):
