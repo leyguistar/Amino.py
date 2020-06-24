@@ -5,6 +5,7 @@ import json
 import ffmpeg
 from time import time as timestamp
 from time import timezone
+from typing import BinaryIO
 
 from . import client, community
 from .lib.util import exceptions, headers, device, objects
@@ -369,7 +370,7 @@ class SubClient(client.Client):
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
-    def start_pm(self, userIds: list, message: str):
+    def start_chat(self, userIds: list, message: str):
         data = json.dumps({
             "type": 0,
             "inviteeUids": userIds,
@@ -494,7 +495,7 @@ class SubClient(client.Client):
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
-    def send_message(self, chatId: str, message: str = None, filePath = None, replyTo: str = None, mentionUserIds: list = None, stickerId: str = None):
+    def send_message(self, chatId: str, message: str = None, messageType: int = 0, filePath = None, replyTo: str = None, mentionUserIds: list = None, stickerId: str = None, embedId: str = None, embedType: int = None, embedLink: str = None, embedTitle: str = None, embedContent: str = None, embedImage: BinaryIO = None):
         audio_types = ["mp3", "aac", "wav", "ogg", "mkv"]
         image_types = ["png", "jpg", "jpeg", "gif"]
         mentions = []
@@ -502,11 +503,21 @@ class SubClient(client.Client):
             for mention_uid in mentionUserIds:
                 mentions.append({"uid": mention_uid})
 
+        if embedImage:
+            embedImage = [[100, self.upload_media(embedImage), None]]
+
         data = {
-            "type": 0,
+            "type": messageType,
             "content": message,
             "clientRefId": int(timestamp() / 10 % 1000000000),
-            "attachedObject": None,
+            "attachedObject": {
+                "objectId": embedId,
+                "objectType": embedType,
+                "link": embedLink,
+                "title": embedTitle,
+                "content": embedContent,
+                "mediaList": embedImage
+            },
             "extensions": {"mentionedArray": mentions},
             "timestamp": int(timestamp() * 1000)
         }
@@ -1163,9 +1174,9 @@ class SubClient(client.Client):
         if response.status_code == 200: return response.status_code
         else: return json.loads(response.text)
 
-    def ban(self, userId: str, reason: str, type: int = None):
+    def ban(self, userId: str, reason: str, banType: int = None):
         data = json.dumps({
-            "reasonType": type,
+            "reasonType": banType,
             "note": {
                 "content": reason
             },
@@ -1173,6 +1184,18 @@ class SubClient(client.Client):
         })
 
         response = requests.post(f"{self.api}/x{self.comId}/s/user-profile/{userId}/ban", headers=headers.Headers(data=data).headers, data=data)
+        if response.status_code == 200: return response.status_code
+        else: return json.loads(response.text)
+
+    def unban(self, userId: str, reason: str):
+        data = json.dumps({
+            "note": {
+                "content": reason
+            },
+            "timestamp": int(timestamp() * 1000)
+        })
+
+        response = requests.post(f"{self.api}/x{self.comId}/s/user-profile/{userId}/unban", headers=headers.Headers(data=data).headers, data=data)
         if response.status_code == 200: return response.status_code
         else: return json.loads(response.text)
 
@@ -1257,3 +1280,28 @@ class SubClient(client.Client):
         response = requests.post(f"{self.api}/x{self.comId}/s/community/settings", data=data, headers=headers.Headers(data=data).headers)
         if response.status_code == 200: return response.status_code
         else: return json.loads(response.text)
+
+    def acm_delete_community(self, email: str, password: str, verificationCode: str):
+        data = json.dumps({
+            "secret": f"0 {password}",
+            "validationContext": {
+                "data": {
+                    "code": verificationCode
+                },
+                "type": 1,
+                "identity": email
+            },
+            "deviceID": device.device_id
+        })
+
+        response = requests.post(f"{self.api}/g/s-x{self.comId}/community/delete-request", headers=headers.Headers(data=data).headers, data=data)
+        if response.status_code != 200:
+            response = json.loads(response.text)
+            if response["api:statuscode"] == 200: raise exceptions.InvalidAccountOrPassword
+            if response["api:statuscode"] == 213: raise exceptions.InvalidEmail
+            if response["api:statuscode"] == 214: raise exceptions.InvalidPassword
+            if response["api:statuscode"] == 270: raise exceptions.VerificationRequired
+            if response["api:statuscode"] == 833: raise exceptions.CommunityAlreadyDeleted
+            else: return response
+
+        else: return response.status_code

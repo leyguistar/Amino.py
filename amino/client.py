@@ -3,6 +3,7 @@ import json
 from locale import getdefaultlocale as locale
 from time import time as timestamp
 from time import timezone
+from typing import BinaryIO
 
 from .lib.util import exceptions, headers, device, objects
 from .socket import Callbacks, SocketHandler
@@ -46,6 +47,7 @@ class Client:
             if response["api:statuscode"] == 200: raise exceptions.InvalidAccountOrPassword
             if response["api:statuscode"] == 213: raise exceptions.InvalidEmail
             if response["api:statuscode"] == 214: raise exceptions.InvalidPassword
+            if response["api:statuscode"] == 246: raise exceptions.AccountDeleted
             if response["api:statuscode"] == 270: raise exceptions.VerificationRequired
             else: return response
 
@@ -60,7 +62,7 @@ class Client:
             self.socket.start()
             return response.status_code
 
-    def register(self, nickname, email: str, password: str, deviceId: str = device.device_id):
+    def register(self, nickname: str, email: str, password: str, deviceId: str = device.device_id):
         data = json.dumps({
             "secret": f"0 {password}",
             "deviceID": deviceId,
@@ -79,6 +81,27 @@ class Client:
         response = requests.post(f"{self.api}/g/s/auth/register", data=data, headers=headers.Headers(data=data).headers)
         if response.status_code == 200: return response.status_code
         else: return json.loads(response.text)
+
+    def restore(self, email: str, password: str):
+        data = json.dumps({
+            "secret": f"0 {password}",
+            "deviceID": device.device_id,
+            "email": email,
+            "timestamp": int(timestamp() * 1000)
+
+        })
+
+        response = requests.post(f"{self.api}/g/s/account/delete-request/cancel", headers=headers.Headers(data=data).headers, data=data)
+        if response.status_code != 200:
+            response = json.loads(response.text)
+            if response["api:statuscode"] == 200: raise exceptions.InvalidAccountOrPassword
+            if response["api:statuscode"] == 213: raise exceptions.InvalidEmail
+            if response["api:statuscode"] == 214: raise exceptions.InvalidPassword
+            if response["api:statuscode"] == 270: raise exceptions.VerificationRequired
+            if response["api:statuscode"] == 2800: raise exceptions.AccountAlreadyRestored
+            else: return response
+
+        else: return response.status_code
 
     @property
     def logout(self):
@@ -113,6 +136,22 @@ class Client:
         if response.status_code == 200: return response.status_code
         else: return json.loads(response.text)
 
+    def verify(self, email: str):
+        data = json.dumps({
+            "identity": email,
+            "type": 1,
+            "deviceID": device.device_id
+        })
+
+        response = requests.post(f"{self.api}/g/s/auth/request-security-validation", headers=headers.Headers(data=data).headers, data=data)
+        if response.status_code != 200:
+            response = json.loads(response.text)
+            if response["api:statuscode"] == 213: raise exceptions.InvalidEmail
+            if response["api:statuscode"] == 219: raise exceptions.TooManyRequests
+            else: return response
+
+        else: return response.status_code
+
     def client_config(self):
         data = json.dumps({
             "deviceID": self.device_id,
@@ -127,10 +166,15 @@ class Client:
         response = requests.post(f"{self.api}/g/s/device", headers=headers.Headers(data=data).headers, data=data)
         if response.status_code == 200: self.configured = True
 
-    def upload_image(self, filePath):
-        data = open(filePath, "rb").read()
-        response = requests.post(f"{self.api}/g/s/media/upload", data=data, headers=headers.Headers(type=f"image/{filePath.split('.')[-1]}", data=data).headers)
-        return json.loads(response.text)["mediaValue"]
+    def upload_media(self, file: BinaryIO):
+        data = file.read()
+        response = requests.post(f"{self.api}/g/s/media/upload", data=data, headers=headers.Headers(type=f"image/jpg", data=data).headers)
+        if response.status_code != 200:
+            response = json.loads(response.text)
+            if response["api:statuscode"] == 300: raise exceptions.BadImage
+            else: return response
+
+        else: return json.loads(response.text)["mediaValue"]
 
     def handle_socket_message(self, data):
         return self.callbacks.resolve(data)
@@ -249,6 +293,35 @@ class Client:
         response = requests.post(f"{self.api}/x{comId}/s/community/leave", headers=headers.Headers().headers)
         if self.authenticated is False: raise exceptions.NotLoggedIn
         if response.status_code != 200: return json.loads(response.text)
+        else: return response.status_code
+
+    def create_community(self, name: str, tagline: str, icon: BinaryIO, themeColor: str, joinType: str = 0):
+        data = json.dumps({
+            "icon": {
+                "height": 512.0,
+                "imageMatrix": [1.6875, 0.0, 108.0, 0.0, 1.6875, 497.0, 0.0, 0.0, 1.0],
+                "path": self.upload_media(icon),
+                "width": 512.0,
+                "x": 0.0,
+                "y": 0.0
+            },
+            "joinType": joinType,
+            "name": name,
+            "primaryLanguage": "en",
+            "tagline": tagline,
+            "templateId": 9,
+            "themeColor": themeColor,
+            "timestamp": int(timestamp() * 1000)
+        })
+
+        response = requests.post(f"{self.api}/g/s/community", headers=headers.Headers(data=data).headers, data=data)
+        if self.authenticated is False: raise exceptions.NotLoggedIn
+        if response.status_code != 200:
+            response = json.loads(response.text)
+            if response["api:statuscode"] == 805: raise exceptions.CommunityNameAlreadyTaken
+            if response["api:statuscode"] == 2800: raise exceptions.AccountAlreadyRestored
+            else: return response
+
         else: return response.status_code
 
     def edit_profile(self, nickname: str = None, content: str = None, icon: str = None, backgroundImage: str = None):

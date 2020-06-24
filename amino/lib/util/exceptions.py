@@ -59,6 +59,11 @@ class AccountLimitReached(Exception):
     def __init__(*args, **kwargs):
         Exception.__init__(*args, **kwargs)
 
+# AMINO ERROR 219
+class TooManyRequests(Exception):
+    def __init__(*args, **kwargs):
+        Exception.__init__(*args, **kwargs)
+
 # AMINO ERROR 221
 class CantFollowYourself(Exception):
     def __init__(*args, **kwargs):
@@ -79,6 +84,11 @@ class ReachedTitleLength(Exception):
     def __init__(*args, **kwargs):
         Exception.__init__(*args, **kwargs)
 
+# AMINO ERROR 246
+class AccountDeleted(Exception):
+    def __init__(*args, **kwargs):
+        Exception.__init__(*args, **kwargs)
+
 # AMINO ERROR 262
 class ReachedMaxTitles(Exception):
     def __init__(*args, **kwargs):
@@ -89,7 +99,12 @@ class VerificationRequired(Exception):
     def __init__(*args, **kwargs):
         Exception.__init__(*args, **kwargs)
 
-# AMINO ERROR 313
+# AMINO ERROR 300
+class BadImage(Exception):
+    def __init__(*args, **kwargs):
+        Exception.__init__(*args, **kwargs)
+
+        # AMINO ERROR 313
 class InvalidThemepack(Exception):
     def __init__(*args, **kwargs):
         Exception.__init__(*args, **kwargs)
@@ -104,8 +119,23 @@ class WallCommentingDisabled(Exception):
     def __init__(*args, **kwargs):
         Exception.__init__(*args, **kwargs)
 
+# AMINO ERROR 805
+class CommunityNameAlreadyTaken(Exception):
+    def __init__(*args, **kwargs):
+        Exception.__init__(*args, **kwargs)
+
+# AMINO ERROR 833
+class CommunityAlreadyDeleted(Exception):
+    def __init__(*args, **kwargs):
+        Exception.__init__(*args, **kwargs)
+
 # AMINO ERROR 1605
 class ChatFull(Exception):
+    def __init__(*args, **kwargs):
+        Exception.__init__(*args, **kwargs)
+
+# AMINO ERROR 1661
+class LevelFiveRequiredToEnableProps(Exception):
     def __init__(*args, **kwargs):
         Exception.__init__(*args, **kwargs)
 
@@ -121,6 +151,11 @@ class AlreadyCheckedIn(Exception):
 
 # AMINO ERROR 2611
 class AlreadyUsedMonthlyRepair(Exception):
+    def __init__(*args, **kwargs):
+        Exception.__init__(*args, **kwargs)
+
+# AMINO ERROR 2800
+class AccountAlreadyRestored(Exception):
     def __init__(*args, **kwargs):
         Exception.__init__(*args, **kwargs)
 
