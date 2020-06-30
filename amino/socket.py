@@ -12,6 +12,7 @@ class SocketHandler:
         self.headers = None
         self.socket = None
         self.socket_thread = None
+        self.reconnect = True
 
         websocket.enableTrace(socket_trace)
 

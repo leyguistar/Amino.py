@@ -1,13 +1,13 @@
+import json
 import base64
 import random
-import requests
-import json
 import ffmpeg
-from time import time as timestamp
+import requests
 from time import timezone
+from time import time as timestamp
 from typing import BinaryIO
 
-from . import client, community
+from . import client
 from .lib.util import exceptions, headers, device, objects
 
 device = device.DeviceGenerator()
@@ -17,8 +17,7 @@ class SubClient(client.Client):
     def __init__(self, comId: str, profile: str):
         client.Client.__init__(self)
 
-        if not community and not comId:
-            raise exceptions.NoCommunity
+        if not comId: raise exceptions.NoCommunity
 
         self.profile = profile
         self.comId = comId
@@ -47,6 +46,7 @@ class SubClient(client.Client):
         if fansOnly: data["extensions"] = {"fansOnly": fansOnly}
         if backgroundColor: data["extensions"] = {"style": {"backgroundColor": backgroundColor}}
         if categoriesList: data["taggedBlogCategoryIdList"] = categoriesList
+
         data = json.dumps(data)
         response = requests.post(f"{self.api}/x{self.comId}/s/blog", headers=headers.Headers(data=data).headers, data=data)
         if response.status_code != 200: return json.loads(response.text)
@@ -181,9 +181,9 @@ class SubClient(client.Client):
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
-    def comment(self, content: str, userId: str = None, blogId: str = None, wikiId: str = None, replyTo: str = None, isGuest: bool = False):
+    def comment(self, message: str, userId: str = None, blogId: str = None, wikiId: str = None, replyTo: str = None, isGuest: bool = False):
         data = {
-            "content": content,
+            "content": message,
             "stickerId": None,
             "type": 0,
             "timestamp": int(timestamp() * 1000)
@@ -208,6 +208,15 @@ class SubClient(client.Client):
             data["eventSource"] = "PostDetailView"
             data = json.dumps(data)
             response = requests.post(f"{self.api}/x{self.comId}/s/item/{wikiId}/{comType}", headers=headers.Headers(data=data).headers, data=data)
+
+        else: raise exceptions.SpecifyType
+        if response.status_code != 200: return json.loads(response.text)
+        else: return response.status_code
+
+    def delete_comment(self, commentId: str, userId: str = None, blogId: str = None, wikiId: str = None):
+        if userId: response = requests.delete(f"{self.api}/x{self.comId}/s/user-profile/{userId}/comment/{commentId}", headers=headers.Headers().headers)
+        elif blogId: response = requests.delete(f"{self.api}/x{self.comId}/s/blog/{blogId}/comment/{commentId}", headers=headers.Headers().headers)
+        elif wikiId: response = requests.delete(f"{self.api}/x{self.comId}/s/item/{wikiId}/comment/{commentId}", headers=headers.Headers().headers)
 
         else: raise exceptions.SpecifyType
         if response.status_code != 200: return json.loads(response.text)
@@ -475,10 +484,10 @@ class SubClient(client.Client):
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
-    def flag(self, content: str, type: int, userId: str = None, blogId: str = None):
+    def flag(self, reason: str, flagType: int, userId: str = None, blogId: str = None, **kwargs):
         data = {
-            "flagType": type,
-            "message": content,
+            "flagType": flagType,
+            "message": reason,
             "timestamp": int(timestamp() * 1000)
         }
 
@@ -585,7 +594,7 @@ class SubClient(client.Client):
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
-    def edit_chat(self, chatId: str, title: str = None, icon: str = None, backgroundImage: str = None, content: str = None, announcement: str = None, coHosts: list = None, keywords: list = None, pinAnnouncement: bool = None, publishToGlobal: bool = None, canTip: bool = None, viewOnly: bool = None, canInvite: bool = None, fansOnly: bool = None):
+    def edit_chat(self, chatId: str, doNotDisturb: bool = None, pinChat: bool = None, title: str = None, icon: str = None, backgroundImage: str = None, content: str = None, announcement: str = None, coHosts: list = None, keywords: list = None, pinAnnouncement: bool = None, publishToGlobal: bool = None, canTip: bool = None, viewOnly: bool = None, canInvite: bool = None, fansOnly: bool = None):
         data = {
             "type": 1,
             "timestamp": int(timestamp() * 1000)
@@ -601,6 +610,28 @@ class SubClient(client.Client):
 
         if publishToGlobal: data["publishToGlobal"] = 0
         if not publishToGlobal: data["publishToGlobal"] = 1
+
+        if doNotDisturb:
+            data = json.dumps({"alertOption": 2, "timestamp": int(timestamp() * 1000)})
+            response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/member/{self.profile.id}/alert", data=data, headers=headers.Headers(data=data).headers)
+            if response.status_code != 200: return json.loads(response.text)
+            else: pass
+
+        if not doNotDisturb:
+            data = json.dumps({"alertOption": 1, "timestamp": int(timestamp() * 1000)})
+            response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/member/{self.profile.id}/alert", data=data, headers=headers.Headers(data=data).headers)
+            if response.status_code != 200: return json.loads(response.text)
+            else: pass
+
+        if pinChat:
+            response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/pin", headers=headers.Headers().headers)
+            if response.status_code != 200: return json.loads(response.text)
+            else: pass
+
+        if not pinChat:
+            response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/unpin", headers=headers.Headers().headers)
+            if response.status_code != 200: return json.loads(response.text)
+            else: pass
 
         if backgroundImage:
             data = json.dumps({"media": [100, backgroundImage, None], "timestamp": int(timestamp() * 1000)})
@@ -1223,85 +1254,3 @@ class SubClient(client.Client):
         response = requests.get(f"{self.api}/x{self.comId}/s/user-profile?type=featured&start={start}&size={size}", headers=headers.Headers().headers)
         if response.status_code != 200: return json.loads(response.text)
         return objects.userProfileCountList(json.loads(response.text)).userProfileCountList
-
-    #
-    # ACM
-    # TODO : Finish this
-
-    def acm_list_communities(self, start: int = 0, size: int = 25):
-        response = requests.get(f"{self.api}/g/s/community/managed?start={start}&size={size}", headers=headers.Headers().headers)
-        return json.loads(response.text)
-
-    def acm_edit_modules(self, module: str, value):
-        """
-        Modules:
-          chat: module.chat.enabled
-          posts: module.post.enabled
-          wiki: module.catalog.enabled
-          | curation : module.catalog.curationEnabled
-          categories: module.topicCategories.enabled
-        """
-        data = json.dumps({
-            "path": f"module.{module}.enabled",
-            "value": value,
-            "timestamp": int(timestamp() * 1000)
-        })
-
-        response = requests.post(f"{self.api}/x{self.comId}/s/community/configuration", headers=headers.Headers(data=data).headers, data=data)
-        return json.loads(response.text)
-
-    def acm_get_categories(self, start: int = 0, size: int = 25):
-        response = requests.get(f"{self.api}/x{self.comId}/s/blog-category?start={start}&size={size}", headers=headers.Headers().headers)
-        return json.loads(response.text)
-
-    def acm_change_sidepanel_color(self, color: str):
-        data = json.dumps({
-            "path": "appearance.leftSidePanel.style.iconColor",
-            "value": color,
-            "timestamp": int(timestamp() * 1000)
-        })
-
-        response = requests.post(f"{self.api}/x{self.comId}/s/community/configuration", headers=headers.Headers(data=data).headers, data=data)
-        if response.status_code == 200: return response.status_code
-        else: return json.loads(response.text)
-
-    def acm_upload_themepack_raw(self, file: str):
-        data = open(file, "rb").read()
-        response = requests.post(f"{self.api}/x{self.comId}/s/media/upload/target/community-theme-pack", data=data, headers=headers.Headers(data=data).headers)
-        if response.status_code == 200: return json.loads(response.text)["mediaValue"]
-        else: return json.loads(response.text)
-
-    def acm_upload_theme(self, ndthemepack: str):
-        data = json.dumps({
-            "themePackUrl": ndthemepack,
-            "timestamp": int(timestamp() * 1000)
-        })
-
-        response = requests.post(f"{self.api}/x{self.comId}/s/community/settings", data=data, headers=headers.Headers(data=data).headers)
-        if response.status_code == 200: return response.status_code
-        else: return json.loads(response.text)
-
-    def acm_delete_community(self, email: str, password: str, verificationCode: str):
-        data = json.dumps({
-            "secret": f"0 {password}",
-            "validationContext": {
-                "data": {
-                    "code": verificationCode
-                },
-                "type": 1,
-                "identity": email
-            },
-            "deviceID": device.device_id
-        })
-
-        response = requests.post(f"{self.api}/g/s-x{self.comId}/community/delete-request", headers=headers.Headers(data=data).headers, data=data)
-        if response.status_code != 200:
-            response = json.loads(response.text)
-            if response["api:statuscode"] == 200: raise exceptions.InvalidAccountOrPassword
-            if response["api:statuscode"] == 213: raise exceptions.InvalidEmail
-            if response["api:statuscode"] == 214: raise exceptions.InvalidPassword
-            if response["api:statuscode"] == 270: raise exceptions.VerificationRequired
-            if response["api:statuscode"] == 833: raise exceptions.CommunityAlreadyDeleted
-            else: return response
-
-        else: return response.status_code

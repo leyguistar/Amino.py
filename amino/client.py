@@ -1,8 +1,10 @@
-import requests
 import json
-from locale import getdefaultlocale as locale
-from time import time as timestamp
+import base64
+import ffmpeg
+import requests
 from time import timezone
+from time import time as timestamp
+from locale import getdefaultlocale as locale
 from typing import BinaryIO
 
 from .lib.util import exceptions, headers, device, objects
@@ -183,7 +185,6 @@ class Client:
     def sub_clients(self, start: int = 0, size: int = 25):
         if not self.authenticated: raise exceptions.NotLoggedIn
         response = requests.get(f"{self.api}/g/s/community/joined?v=1&start={start}&size={size}", headers=headers.Headers().headers)
-        if self.authenticated is False: raise exceptions.NotLoggedIn
         if response.status_code != 200: return json.loads(response.text)
         else: return objects.communityList(json.loads(response.text)["communityList"]).communityList
 
@@ -196,6 +197,36 @@ class Client:
             else: return response
 
         else: return objects.userProfile(json.loads(response.text)["userProfile"]).userProfile
+
+    def get_chat_threads(self, start: int = 0, size: int = 25):
+        response = requests.get(f"{self.api}/g/s/chat/thread?type=joined-me&start={start}&size={size}", headers=headers.Headers().headers)
+        if response.status_code != 200: return json.loads(response.text)
+        return objects.threadList(json.loads(response.text)["threadList"]).threadList
+
+    def get_chat_thread(self, chatId: str):
+        response = requests.get(f"{self.api}/g/s/chat/thread/{chatId}", headers=headers.Headers().headers)
+        if response.status_code != 200: return json.loads(response.text)
+        return objects.thread(json.loads(response.text)["thread"]).thread
+
+    def get_chat_messages(self, chatId: str, size: int = 25):
+        response = requests.get(f"{self.api}/g/s/chat/thread/{chatId}/message?v=2&pagingType=t&size={size}", headers=headers.Headers().headers)
+        if response.status_code != 200: return json.loads(response.text)
+        return objects.messageList(json.loads(response.text)["messageList"]).messageList
+
+    def get_message_info(self, chatId: str, messageId: str):
+        response = requests.get(f"{self.api}/g/s/chat/thread/{chatId}/message/{messageId}", headers=headers.Headers().headers)
+        if response.status_code != 200: return json.loads(response.text)
+        return objects.message(json.loads(response.text)["message"]).message
+
+    def get_community_info(self, comId: str):
+        response = requests.get(f"{self.api}/g/s-x{comId}/community/info?withInfluencerList=1&withTopicList=true&influencerListOrderStrategy=fansCount", headers=headers.Headers().headers)
+        if response.status_code != 200:
+            response = json.loads(response.text)
+            if response["api:statuscode"] == 801: raise exceptions.CommunityNoLongerExists
+            elif response["api:statuscode"] == 833: raise exceptions.CommunityDeleted
+            else: return response
+
+        else: return objects.community(json.loads(response.text)["community"]).community
 
     def get_user_following(self, userId: str, start: int = 0, size: int = 25):
         response = requests.get(f"{self.api}/g/s/user-profile/{userId}/joined?start={start}&size={size}", headers=headers.Headers().headers)
@@ -230,14 +261,12 @@ class Client:
     @property
     def get_blocked_users(self, start: int = 0, size: int = 25):
         response = requests.get(f"{self.api}/g/s/block?start={start}&size={size}", headers=headers.Headers().headers)
-        if self.authenticated is False: raise exceptions.NotLoggedIn
         if response.status_code != 200: return json.loads(response.text)
         else: return objects.userProfileList(json.loads(response.text)["userProfileList"]).userProfileList
 
     @property
     def get_blocker_users(self):
         response = requests.get(f"{self.api}/g/s/block/full-list", headers=headers.Headers().headers)
-        if self.authenticated is False: raise exceptions.NotLoggedIn
         if response.status_code != 200: return json.loads(response.text)
         else: return json.loads(response.text)["blockerUidList"]
 
@@ -249,33 +278,227 @@ class Client:
         if response.status_code != 200: return json.loads(response.text)
         else: return objects.commentList(json.loads(response.text)["commentList"]).commentList
 
+    def flag(self, reason: str, flagType: int, userId: str = None, blogId: str = None, asGuest: bool = False):
+        data = {
+            "flagType": flagType,
+            "message": reason,
+            "timestamp": int(timestamp() * 1000)
+        }
+
+        if userId:
+            data["objectId"] = userId
+            data["objectType"] = 0
+
+        if userId:
+            data["objectId"] = blogId
+            data["objectType"] = 1
+
+        if asGuest: flg = "g-flag"
+        else: flg = "flag"
+
+        data = json.dumps(data)
+        response = requests.post(f"{self.api}/g/s/{flg}", data=data, headers=headers.Headers(data=data).headers)
+        if response.status_code != 200: return json.loads(response.text)
+        else: return response.status_code
+
+    def send_message(self, chatId: str, message: str = None, messageType: int = 0, filePath = None, replyTo: str = None, mentionUserIds: list = None, stickerId: str = None, embedId: str = None, embedType: int = None, embedLink: str = None, embedTitle: str = None, embedContent: str = None, embedImage: BinaryIO = None):
+        audio_types = ["mp3", "aac", "wav", "ogg", "mkv"]
+        image_types = ["png", "jpg", "jpeg", "gif"]
+        mentions = []
+        if mentionUserIds:
+            for mention_uid in mentionUserIds:
+                mentions.append({"uid": mention_uid})
+
+        if embedImage:
+            embedImage = [[100, self.upload_media(embedImage), None]]
+
+        data = {
+            "type": messageType,
+            "content": message,
+            "clientRefId": int(timestamp() / 10 % 1000000000),
+            "attachedObject": {
+                "objectId": embedId,
+                "objectType": embedType,
+                "link": embedLink,
+                "title": embedTitle,
+                "content": embedContent,
+                "mediaList": embedImage
+            },
+            "extensions": {"mentionedArray": mentions},
+            "timestamp": int(timestamp() * 1000)
+        }
+
+        if replyTo: data["replyMessageId"] = replyTo
+
+        if stickerId:
+            data["content"] = None
+            data["stickerId"] = stickerId
+            data["type"] = 3
+
+        if filePath:
+            data["content"] = None
+
+            with open(filePath, "rb") as file:
+                if filePath.split('.')[-1] in audio_types:
+                    if filePath.split('.')[-1] != "aac":
+                        process = (ffmpeg
+                                   .input(filePath)
+                                   .output(f"{filePath}.aac", audio_bitrate="320k")
+                                   .overwrite_output()
+                                   .run_async(pipe_stdout=True)
+                                   )
+
+                        process.wait()
+                        file = open(f"{filePath}.aac", "rb")
+
+                    data["type"] = 2
+                    data["mediaType"] = 110
+
+                elif filePath.split('.')[-1] in image_types:
+                    data["mediaType"] = 100
+                    data["mediaUploadValueContentType"] = f"image/{filePath.split('.')[-1]}"
+                    data["mediaUhqEnabled"] = True
+
+                else: raise exceptions.UnsupportedFileExtension
+
+                data["mediaUploadValue"] = base64.b64encode(file.read()).decode()
+
+        data = json.dumps(data)
+        response = requests.post(f"{self.api}/g/s/chat/thread/{chatId}/message", headers=headers.Headers(data=data).headers, data=data)
+        if response.status_code != 200: return json.loads(response.text)
+        else: return response.status_code
+
+    def delete_message(self, chatId: str, messageId: str, asStaff: bool = False, reason: str = None):
+        data = {
+            "adminOpName": 102,
+            "adminOpNote": {"content": reason},
+            "timestamp": int(timestamp() * 1000)
+        }
+
+        data = json.dumps(data)
+        if not asStaff: response = requests.delete(f"{self.api}/g/s/chat/thread/{chatId}/message/{messageId}", headers=headers.Headers().headers)
+        else: response = requests.post(f"{self.api}/g/s/chat/thread/{chatId}/message/{messageId}/admin", headers=headers.Headers(data=data).headers, data=data)
+        if response.status_code != 200: return json.loads(response.text)
+        else: return response.status_code
+
+    def mark_as_read(self, chatId: str, messageId: str):
+        data = json.dumps({
+            "messageId": messageId,
+            "timestamp": int(timestamp() * 1000)
+        })
+        response = requests.post(f"{self.api}/g/s/chat/thread/{chatId}/mark-as-read", headers=headers.Headers().headers, data=data)
+
+        if response.status_code != 200: return json.loads(response.text)
+        else: return response.status_code
+
+    def edit_chat(self, chatId: str, doNotDisturb: bool = None, pinChat: bool = None, title: str = None, icon: str = None, backgroundImage: str = None, content: str = None, announcement: str = None, coHosts: list = None, keywords: list = None, pinAnnouncement: bool = None, publishToGlobal: bool = None, canTip: bool = None, viewOnly: bool = None, canInvite: bool = None, fansOnly: bool = None):
+        data = {
+            "type": 1,
+            "timestamp": int(timestamp() * 1000)
+        }
+
+        if title: data["title"] = title
+        if content: data["content"] = content
+        if icon: data["icon"] = icon
+        if keywords: data["keywords"] = keywords
+        if announcement: data["extensions"] = {"announcement": announcement}
+        if pinAnnouncement: data["extensions"] = {"pinAnnouncement": pinAnnouncement}
+        if fansOnly: data["extensions"] = {"fansOnly": fansOnly}
+
+        if publishToGlobal: data["publishToGlobal"] = 0
+        if not publishToGlobal: data["publishToGlobal"] = 1
+
+        if doNotDisturb:
+            data = json.dumps({"alertOption": 2, "timestamp": int(timestamp() * 1000)})
+            response = requests.post(f"{self.api}/g/s/chat/thread/{chatId}/member/{self.profile.id}/alert", data=data, headers=headers.Headers(data=data).headers)
+            if response.status_code != 200: return json.loads(response.text)
+            else: pass
+
+        if not doNotDisturb:
+            data = json.dumps({"alertOption": 1, "timestamp": int(timestamp() * 1000)})
+            response = requests.post(f"{self.api}/g/s/chat/thread/{chatId}/member/{self.profile.id}/alert", data=data, headers=headers.Headers(data=data).headers)
+            if response.status_code != 200: return json.loads(response.text)
+            else: pass
+
+        if pinChat:
+            response = requests.post(f"{self.api}/g/s/chat/thread/{chatId}/pin", headers=headers.Headers().headers)
+            if response.status_code != 200: return json.loads(response.text)
+            else: pass
+
+        if not pinChat:
+            response = requests.post(f"{self.api}/g/s/chat/thread/{chatId}/unpin", headers=headers.Headers().headers)
+            if response.status_code != 200: return json.loads(response.text)
+            else: pass
+
+        if backgroundImage:
+            data = json.dumps({"media": [100, backgroundImage, None], "timestamp": int(timestamp() * 1000)})
+            response = requests.post(f"{self.api}/g/s/chat/thread/{chatId}/member/{self.profile.id}/background", data=data, headers=headers.Headers(data=data).headers)
+            if response.status_code != 200: return json.loads(response.text)
+            else: pass
+
+        if coHosts:
+            data = json.dumps({"uidList": coHosts, "timestamp": int(timestamp() * 1000)})
+            response = requests.post(f"{self.api}/g/s/chat/thread/{chatId}/co-host", data=data, headers=headers.Headers(data=data).headers)
+            if response.status_code != 200: return json.loads(response.text)
+            else: pass
+
+        if not viewOnly:
+            response = requests.post(f"{self.api}/g/s/chat/thread/{chatId}/view-only/disable", headers=headers.Headers(data=data).headers)
+            if response.status_code != 200: return json.loads(response.text)
+            else: pass
+
+        if viewOnly:
+            response = requests.post(f"{self.api}/g/s/chat/thread/{chatId}/view-only/enable", headers=headers.Headers(data=data).headers)
+            if response.status_code != 200: return json.loads(response.text)
+            else: pass
+
+        if not canInvite:
+            response = requests.post(f"{self.api}/g/s/chat/thread/{chatId}/members-can-invite/disable", headers=headers.Headers(data=data).headers)
+            if response.status_code != 200: return json.loads(response.text)
+            else: pass
+
+        if canInvite:
+            response = requests.post(f"{self.api}/g/s/chat/thread/{chatId}/members-can-invite/enable", headers=headers.Headers(data=data).headers)
+            if response.status_code != 200: return json.loads(response.text)
+            else: pass
+
+        if not canTip:
+            response = requests.post(f"{self.api}/g/s/chat/thread/{chatId}/tipping-perm-status/disable", headers=headers.Headers(data=data).headers)
+            if response.status_code != 200: return json.loads(response.text)
+            else: pass
+
+        if canTip:
+            response = requests.post(f"{self.api}/g/s/chat/thread/{chatId}/tipping-perm-status/enable", headers=headers.Headers(data=data).headers)
+            if response.status_code != 200: return json.loads(response.text)
+            else: pass
+
+        data = json.dumps(data)
+        response = requests.post(f"{self.api}/g/s/chat/thread/{chatId}", headers=headers.Headers(data=data).headers, data=data)
+        if response.status_code != 200: return json.loads(response.text)
+        else: return response.status_code
+
     def visit(self, userId: str):
         response = requests.get(f"{self.api}/g/s/user-profile/{userId}?action=visit", headers=headers.Headers().headers)
-        if self.authenticated is False: raise exceptions.NotLoggedIn
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
     def follow(self, userId: str):
         response = requests.post(f"{self.api}/g/s/user-profile/{userId}/member", headers=headers.Headers().headers)
-        if self.authenticated is False: raise exceptions.NotLoggedIn
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
     def unfollow(self, userId: str):
         response = requests.delete(f"{self.api}/g/s/user-profile/{userId}/member/{self.userId}", headers=headers.Headers().headers)
-        if self.authenticated is False: raise exceptions.NotLoggedIn
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
     def block(self, userId: str):
         response = requests.post(f"{self.api}/g/s/block/{userId}", headers=headers.Headers().headers)
-        if self.authenticated is False: raise exceptions.NotLoggedIn
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
     def unblock(self, userId: str):
         response = requests.delete(f"{self.api}/g/s/block/{userId}", headers=headers.Headers().headers)
-        if self.authenticated is False: raise exceptions.NotLoggedIn
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
@@ -285,46 +508,44 @@ class Client:
 
         data = json.dumps(data)
         response = requests.post(f"{self.api}/x{comId}/s/community/join", data=data, headers=headers.Headers(data=data).headers)
-        if self.authenticated is False: raise exceptions.NotLoggedIn
-        if response.status_code != 200: return json.loads(response.text)
+        if response.status_code != 200:
+            response = json.loads(response.text)
+            if response["api:statuscode"] == 229: raise exceptions.YouAreBanned
+            else: return response
+        else: return response.status_code
+
+    def request_join_community(self, comId: str, message: str = None):
+        data = json.dumps({"message": message, "timestamp": int(timestamp() * 1000)})
+        response = requests.post(f"{self.api}/x{comId}/s/community/membership-request", data=data, headers=headers.Headers(data=data).headers)
+        if response.status_code != 200:
+            response = json.loads(response.text)
+            if response["api:statuscode"] == 229: raise exceptions.YouAreBanned
+            if response["api:statuscode"] == 2001: raise exceptions.AlreadyRequested
+            else: return response
         else: return response.status_code
 
     def leave_community(self, comId: str):
         response = requests.post(f"{self.api}/x{comId}/s/community/leave", headers=headers.Headers().headers)
-        if self.authenticated is False: raise exceptions.NotLoggedIn
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
-    def create_community(self, name: str, tagline: str, icon: BinaryIO, themeColor: str, joinType: str = 0):
+    def flag_community(self, comId: str, reason: str, flagType: int, isGuest: bool = False):
         data = json.dumps({
-            "icon": {
-                "height": 512.0,
-                "imageMatrix": [1.6875, 0.0, 108.0, 0.0, 1.6875, 497.0, 0.0, 0.0, 1.0],
-                "path": self.upload_media(icon),
-                "width": 512.0,
-                "x": 0.0,
-                "y": 0.0
-            },
-            "joinType": joinType,
-            "name": name,
-            "primaryLanguage": "en",
-            "tagline": tagline,
-            "templateId": 9,
-            "themeColor": themeColor,
+            "objectId": comId,
+            "objectType": 16,
+            "flagType": flagType,
+            "message": reason,
             "timestamp": int(timestamp() * 1000)
         })
 
-        response = requests.post(f"{self.api}/g/s/community", headers=headers.Headers(data=data).headers, data=data)
-        if self.authenticated is False: raise exceptions.NotLoggedIn
-        if response.status_code != 200:
-            response = json.loads(response.text)
-            if response["api:statuscode"] == 805: raise exceptions.CommunityNameAlreadyTaken
-            if response["api:statuscode"] == 2800: raise exceptions.AccountAlreadyRestored
-            else: return response
+        if isGuest: flg = "g-flag"
+        else: flg = "flag"
 
+        response = requests.post(f"{self.api}/x{comId}/s/{flg}", data=data, headers=headers.Headers(data=data).headers)
+        if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
-    def edit_profile(self, nickname: str = None, content: str = None, icon: str = None, backgroundImage: str = None):
+    def edit_profile(self, nickname: str = None, content: str = None, icon: str = None, backgroundColor: str = None, backgroundImage: str = None):
         data = {
             "address": None,
             "latitude": 0,
@@ -337,11 +558,11 @@ class Client:
         if nickname: data["nickname"] = nickname
         if icon: data["icon"] = icon
         if content: data["content"] = content
+        if backgroundColor: data["extensions"] = {"style": {"backgroundColor": backgroundColor}}
         if backgroundImage: data["extensions"] = {"style": {"backgroundMediaList": [[100, backgroundImage, None, None, None]]}}
 
         data = json.dumps(data)
         response = requests.post(f"{self.api}/g/s/user-profile/{self.userId}", headers=headers.Headers(data=data).headers, data=data)
-        if self.authenticated is False: raise exceptions.NotLoggedIn
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
@@ -355,39 +576,151 @@ class Client:
 
         data = json.dumps(data)
         response = requests.post(f"{self.api}/g/s/account/visit-settings", headers=headers.Headers(data=data).headers, data=data)
-        if self.authenticated is False: raise exceptions.NotLoggedIn
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
     def set_amino_id(self, aminoId: str):
+        data = json.dumps({"aminoId": aminoId, "timestamp": int(timestamp() * 1000)})
+        response = requests.post(f"{self.api}/g/s/account/change-amino-id", headers=headers.Headers(data=data).headers, data=data)
+        if response.status_code != 200: return json.loads(response.text)
+        else: return response.status_code
+
+    @property
+    def get_linked_communities(self):
+        response = requests.get(f"{self.api}/g/s/user-profile/{self.userId}/linked-community", headers=headers.Headers().headers)
+        return json.loads(response.text)
+
+    def reorder_linked_community(self, comIds: list):
+        data = json.dumps({"ndcIds": comIds, "timestamp": int(timestamp() * 1000)})
+        response = requests.post(f"{self.api}/g/s/user-profile/{self.userId}/linked-community/reorder", headers=headers.Headers(data=data).headers, data=data)
+        if response.status_code != 200: return json.loads(response.text)
+        else: return response.status_code
+
+    def add_linked_community(self, comId: str):
+        response = requests.post(f"{self.api}/g/s/user-profile/{self.userId}/linked-community/{comId}", headers=headers.Headers().headers)
+        if response.status_code != 200: return json.loads(response.text)
+        else: return response.status_code
+
+    def remove_linked_community(self, comId: str):
+        response = requests.delete(f"{self.api}/g/s/user-profile/{self.userId}/linked-community/{comId}", headers=headers.Headers().headers)
+        if response.status_code != 200: return json.loads(response.text)
+        else: return response.status_code
+
+    def comment(self, message: str, userId: str = None, blogId: str = None, wikiId: str = None, replyTo: str = None):
         data = {
-            "aminoId": aminoId,
+            "content": message,
+            "stickerId": None,
+            "type": 0,
             "timestamp": int(timestamp() * 1000)
         }
 
-        data = json.dumps(data)
-        response = requests.post(f"{self.api}/g/s/account/change-amino-id", headers=headers.Headers(data=data).headers, data=data)
-        if self.authenticated is False: raise exceptions.NotLoggedIn
+        if replyTo: data["respondTo"] = replyTo
+
+        if userId:
+            data["eventSource"] = "UserProfileView"
+            data = json.dumps(data)
+            response = requests.post(f"{self.api}/g/s/user-profile/{userId}/g-comment", headers=headers.Headers(data=data).headers, data=data)
+
+        elif blogId:
+            data["eventSource"] = "PostDetailView"
+            data = json.dumps(data)
+            response = requests.post(f"{self.api}/g/s/blog/{blogId}/g-comment", headers=headers.Headers(data=data).headers, data=data)
+
+        elif wikiId:
+            data["eventSource"] = "PostDetailView"
+            data = json.dumps(data)
+            response = requests.post(f"{self.api}/g/s/item/{wikiId}/g-comment", headers=headers.Headers(data=data).headers, data=data)
+
+        else: raise exceptions.SpecifyType
+        if response.status_code != 200: return json.loads(response.text)
+        else: return response.status_code
+
+    def delete_comment(self, commentId: str, userId: str = None, blogId: str = None, wikiId: str = None):
+        if userId: response = requests.delete(f"{self.api}/g/s/user-profile/{userId}/g-comment/{commentId}", headers=headers.Headers().headers)
+        elif blogId: response = requests.delete(f"{self.api}/g/s/blog/{blogId}/g-comment/{commentId}", headers=headers.Headers().headers)
+        elif wikiId: response = requests.delete(f"{self.api}/g/s/item/{wikiId}/g-comment/{commentId}", headers=headers.Headers().headers)
+
+        else: raise exceptions.SpecifyType
+        if response.status_code != 200: return json.loads(response.text)
+        else: return response.status_code
+
+    def like_blog(self, blogId: str = None, wikiId: str = None):
+        data = {
+            "value": 4,
+            "timestamp": int(timestamp() * 1000)
+        }
+
+        if blogId:
+            data["eventSource"] = "UserProfileView"
+            data = json.dumps(data)
+            response = requests.post(f"{self.api}/g/s/blog/{blogId}/g-vote?cv=1.2", headers=headers.Headers(data=data).headers, data=data)
+
+        elif wikiId:
+            data["eventSource"] = "PostDetailView"
+            data = json.dumps(data)
+            response = requests.post(f"{self.api}/g/s/item/{wikiId}/g-vote?cv=1.2", headers=headers.Headers(data=data).headers, data=data)
+
+        else: raise exceptions.SpecifyType
+        if response.status_code != 200: return json.loads(response.text)
+        else: return response.status_code
+
+    def like_blogs(self, blogIds: list):
+        data = json.dumps({
+            "value": 4,
+            "targetIdList": blogIds,
+            "timestamp": int(timestamp() * 1000)
+        })
+
+        response = requests.post(f"{self.api}/g/s/feed/g-vote", headers=headers.Headers(data=data).headers, data=data)
+        if response.status_code != 200: return json.loads(response.text)
+        else: return response.status_code
+
+    def unlike_blog(self, blogId: str = None, wikiId: str = None):
+        if blogId: response = requests.delete(f"{self.api}/g/s/blog/{blogId}/g-vote?eventSource=UserProfileView", headers=headers.Headers().headers)
+        elif wikiId: response = requests.delete(f"{self.api}/g/s/item/{wikiId}/g-vote?eventSource=PostDetailView", headers=headers.Headers().headers)
+        else: raise exceptions.SpecifyType
+
+        if response.status_code != 200: return json.loads(response.text)
+        else: return response.status_code
+
+    def like_comment(self, commentId: str, userId: str = None, blogId: str = None):
+        data = {
+            "value": 4,
+            "timestamp": int(timestamp() * 1000)
+        }
+
+        if blogId:
+            data["eventSource"] = "PostDetailView"
+            data = json.dumps(data)
+            response = requests.post(f"{self.api}/g/s/blog/{blogId}/comment/{commentId}/g-vote?cv=1.2&value=1", headers=headers.Headers(data=data).headers, data=data)
+        elif userId:
+            data["eventSource"] = "UserProfileView"
+            data = json.dumps(data)
+            response = requests.post(f"{self.api}/g/s/user-profile/{userId}/comment/{commentId}/g-vote?cv=1.2&value=1", headers=headers.Headers(data=data).headers, data=data)
+
+        else: raise exceptions.SpecifyType
+        if response.status_code != 200: return json.loads(response.text)
+        else: return response.status_code
+
+    def unlike_comment(self, blogId: str, commentId: str):
+        response = requests.delete(f"{self.api}/g/s/blog/{blogId}/comment/{commentId}/g-vote?eventSource=PostDetailView", headers=headers.Headers().headers)
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
     @property
     def get_membership_info(self):
         response = requests.get(f"{self.api}/g/s/membership?force=true", headers=headers.Headers().headers)
-        if self.authenticated is False: raise exceptions.NotLoggedIn
         if response.status_code != 200: return json.loads(response.text)
         else: return objects.membership(json.loads(response.text)).membership
 
     def get_ta_announcements(self, language: str = "en", start: int = 0, size: int = 25):
         response = requests.get(f"{self.api}/g/s/announcement?language={language}&start={start}&size={size}", headers=headers.Headers().headers)
-        if self.authenticated is False: raise exceptions.NotLoggedIn
         if response.status_code != 200: return json.loads(response.text)
         else: return objects.blogList(json.loads(response.text)["blogList"]).blogList
 
     @property
     def get_wallet_info(self):
         response = requests.get(f"{self.api}/g/s/wallet", headers=headers.Headers().headers)
-        if self.authenticated is False: raise exceptions.NotLoggedIn
         if response.status_code != 200: return json.loads(response.text)
         else: return objects.walletInfo(json.loads(response.text)["wallet"]).walletInfo
 
@@ -403,8 +736,11 @@ class Client:
     @property
     def punishmentTypes(self):
         punishments = ["0 - Bullying",
+                       "1 - Inappropriate Content"
                        "2 - Spam",
+                       "3 - Art Theft",
                        "4 - Off-Topic",
+                       "5 - Trolling",
                        "100 - Sexually Explicit",
                        "101 - Extreme Violence",
                        "102 - Inappropriate Requests",
@@ -413,6 +749,6 @@ class Client:
                        "108 - Self-Injury & Suicide",
                        "109 - Harassment & Trolling",
                        "110 - Nudity & Pornography",
-                       "200 - Other"]
+                       "104, 105, 200 - Others"]
 
         return punishments

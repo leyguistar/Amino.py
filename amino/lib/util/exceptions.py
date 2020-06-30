@@ -34,6 +34,12 @@ class UnexistentData(Exception):
     def __init__(*args, **kwargs):
         Exception.__init__(*args, **kwargs)
 
+# AMINO ERROR 113
+# Be more specific, please.
+class MessageNeeded(Exception):
+    def __init__(*args, **kwargs):
+        Exception.__init__(*args, **kwargs)
+
 # AMINO ERROR 200
 class InvalidAccountOrPassword(Exception):
     def __init__(*args, **kwargs):
@@ -79,6 +85,11 @@ class YouAreBanned(Exception):
     def __init__(*args, **kwargs):
         Exception.__init__(*args, **kwargs)
 
+# AMINO ERROR 230
+class UserNotMemberOfCommunity(Exception):
+    def __init__(*args, **kwargs):
+        Exception.__init__(*args, **kwargs)
+
 # AMINO ERROR 240
 class ReachedTitleLength(Exception):
     def __init__(*args, **kwargs):
@@ -99,18 +110,30 @@ class VerificationRequired(Exception):
     def __init__(*args, **kwargs):
         Exception.__init__(*args, **kwargs)
 
+# AMINO ERROR 291
+# Whoa there! You've done too much too quickly. Take a break and try again later.
+class CommandCooldown(Exception):
+    def __init__(*args, **kwargs):
+        Exception.__init__(*args, **kwargs)
+
 # AMINO ERROR 300
 class BadImage(Exception):
     def __init__(*args, **kwargs):
         Exception.__init__(*args, **kwargs)
 
-        # AMINO ERROR 313
+ # AMINO ERROR 313
 class InvalidThemepack(Exception):
     def __init__(*args, **kwargs):
         Exception.__init__(*args, **kwargs)
 
 # AMINO ERROR 314
 class InvalidVoiceNote(Exception):
+    def __init__(*args, **kwargs):
+        Exception.__init__(*args, **kwargs)
+
+# AMINO ERROR 551
+# This post type is restricted to members with a level X ranking and above.
+class InsufficientLevel(Exception):
     def __init__(*args, **kwargs):
         Exception.__init__(*args, **kwargs)
 
@@ -124,8 +147,21 @@ class CommunityNameAlreadyTaken(Exception):
     def __init__(*args, **kwargs):
         Exception.__init__(*args, **kwargs)
 
+# AMINO ERROR 801
+# This Community no longer exists.
+class CommunityNoLongerExists(Exception):
+    def __init__(*args, **kwargs):
+        Exception.__init__(*args, **kwargs)
+
+# AMINO ERROR 802
+# Sorry, this code or link is invalid.
+class InvalidCodeOrLink(Exception):
+    def __init__(*args, **kwargs):
+        Exception.__init__(*args, **kwargs)
+
 # AMINO ERROR 833
-class CommunityAlreadyDeleted(Exception):
+# This Community has been deleted.
+class CommunityDeleted(Exception):
     def __init__(*args, **kwargs):
         Exception.__init__(*args, **kwargs)
 
@@ -146,6 +182,12 @@ class ChatViewOnly(Exception):
 
 # AMINO ERROR 2601
 class AlreadyCheckedIn(Exception):
+    def __init__(*args, **kwargs):
+        Exception.__init__(*args, **kwargs)
+
+# AMINO ERROR 2001
+# Sorry, you have already submitted a membership request.
+class AlreadyRequested(Exception):
     def __init__(*args, **kwargs):
         Exception.__init__(*args, **kwargs)
 

@@ -789,6 +789,15 @@ class community:
         self.welcomeMessageEnabled = None
         self.hasPendingReviewRequest = None
         self.frontPageLayout = None
+        self.themeColor = None
+        self.themeHash = None
+        self.themeVersion = None
+        self.themeUrl = None
+        self.themeHomePageAppearance = None
+        self.themeLeftSidePanelTop = None
+        self.themeLeftSidePanelBottom = None
+        self.themeLeftSidePanelColor = None
+        self.customList = None
 
     @property
     def community(self):
@@ -810,6 +819,15 @@ class community:
             self.probationStatus = self.json["probationStatus"]
             self.listedStatus = self.json["listedStatus"]
             self.themePack = self.json["themePack"]
+            self.themeColor = self.json["themePack"]["themeColor"]
+            self.themeHash = self.json["themePack"]["themePackHash"]
+            self.themeVersion = self.json["themePack"]["themePackRevision"]
+            self.themeUrl = self.json["themePack"]["themePackUrl"]
+            self.themeHomePageAppearance = self.json["configuration"]["appearance"]["homePage"]["navigation"]
+            self.themeLeftSidePanelTop = self.json["configuration"]["appearance"]["leftSidePanel"]["navigation"]["level1"]
+            self.themeLeftSidePanelBottom = self.json["configuration"]["appearance"]["leftSidePanel"]["navigation"]["level2"]
+            self.themeLeftSidePanelColor = self.json["configuration"]["appearance"]["leftSidePanel"]["style"]["iconColor"]
+            self.customList = self.json["configuration"]["page"]["customList"]
             self.tagline = self.json["tagline"]
             self.searchable = self.json["searchable"]
             self.isStandaloneAppDeprecated = self.json["isStandaloneAppDeprecated"]
@@ -886,6 +904,15 @@ class communityList:
         self.welcomeMessageEnabled = []
         self.hasPendingReviewRequest = []
         self.frontPageLayout = []
+        self.themeColor = []
+        self.themeHash = []
+        self.themeVersion = []
+        self.themeUrl = []
+        self.themeHomePageAppearance = []
+        self.themeLeftSidePanelTop = []
+        self.themeLeftSidePanelBottom = []
+        self.themeLeftSidePanelColor = []
+        self.customList = []
 
     @property
     def communityList(self):
@@ -976,6 +1003,24 @@ class communityList:
             except (KeyError, TypeError): self.templateId.append(None)
             try: self.promotionalMediaList.append(x["promotionalMediaList"])
             except (KeyError, TypeError): self.promotionalMediaList.append(None)
+            try: self.themeColor.append(x["themePack"]["themeColor"])
+            except (KeyError, TypeError): self.themeColor.append(None)
+            try: self.themeHash.append(x["themePack"]["themePackHash"])
+            except (KeyError, TypeError): self.themeHash.append(None)
+            try: self.themeVersion.append(x["themePack"]["themePackRevision"])
+            except (KeyError, TypeError): self.themeVersion.append(None)
+            try: self.themeUrl.append(x["themePack"]["themePackUrl"])
+            except (KeyError, TypeError): self.themeUrl.append(None)
+            try: self.themeHomePageAppearance.append(x["configuration"]["appearance"]["homePage"]["navigation"])
+            except (KeyError, TypeError): self.themeHomePageAppearance.append(None)
+            try: self.themeLeftSidePanelTop.append(x["configuration"]["appearance"]["leftSidePanel"]["navigation"]["level1"])
+            except (KeyError, TypeError): self.themeLeftSidePanelTop.append(None)
+            try: self.themeLeftSidePanelBottom.append(x["configuration"]["appearance"]["leftSidePanel"]["navigation"]["level2"])
+            except (KeyError, TypeError): self.themeLeftSidePanelBottom.append(None)
+            try: self.themeLeftSidePanelColor.append(x["configuration"]["appearance"]["leftSidePanel"]["style"]["iconColor"])
+            except (KeyError, TypeError): self.themeLeftSidePanelColor.append(None)
+            try: self.customList.append(x["configuration"]["page"]["customList"])
+            except (KeyError, TypeError): self.customList.append(None)
 
         return self
 
@@ -1841,6 +1886,7 @@ class messageList:
         self.type = []
         self.extensions = []
         self.sticker = []
+        self.mentionUserIds = []
         self.duration = []
         self.originalStickerId = []
 
@@ -1877,6 +1923,8 @@ class messageList:
             except (KeyError, TypeError): self.duration.append(None)
             try: self.originalStickerId.append(x["extensions"]["originalStickerId"])
             except (KeyError, TypeError): self.originalStickerId.append(None)
+            try: self.mentionUserIds.append(x["extensions"]["mentionUserIds"])
+            except (KeyError, TypeError): self.mentionUserIds.append(None)
             try: self.sticker.append(sticker(self.json["extensions"]["sticker"]).sticker)
             except (KeyError, TypeError): self.sticker.append(None)
 
