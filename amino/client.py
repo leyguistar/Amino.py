@@ -42,7 +42,6 @@ class Client:
             "action": "normal",
             "timestamp": int(timestamp() * 1000)
         })
-
         response = requests.post(f"{self.api}/g/s/auth/login", headers=headers.Headers(data=data).headers, data=data)
         if response.status_code != 200:
             response = json.loads(response.text)
@@ -105,7 +104,7 @@ class Client:
 
         else: return response.status_code
 
-    @property
+    #@property
     def logout(self):
         data = json.dumps({
             "deviceID": self.device_id,
@@ -115,6 +114,7 @@ class Client:
 
         response = requests.post(f"{self.api}/g/s/auth/logout", headers=headers.Headers(data=data).headers, data=data)
         self.authenticated = False
+        self.socket.close()
         return response.status_code
 
     def configure(self, age: int, gender: str):
@@ -168,8 +168,9 @@ class Client:
         response = requests.post(f"{self.api}/g/s/device", headers=headers.Headers(data=data).headers, data=data)
         if response.status_code == 200: self.configured = True
 
-    def upload_media(self, file: BinaryIO):
-        data = file.read()
+    def upload_media(self, file: BinaryIO = None,data=None):
+        if(data==None):
+            data = file.read()
         response = requests.post(f"{self.api}/g/s/media/upload", data=data, headers=headers.Headers(type=f"image/jpg", data=data).headers)
         if response.status_code != 200:
             response = json.loads(response.text)
@@ -188,8 +189,14 @@ class Client:
         if response.status_code != 200: return json.loads(response.text)
         else: return objects.communityList(json.loads(response.text)["communityList"]).communityList
 
-    def get_user_info(self, userId: str):
+    def get_user_info(self, userId: str,save=True):
         response = requests.get(f"{self.api}/g/s/user-profile/{userId}", headers=headers.Headers().headers)
+        if(save):
+            print("Writting user info")
+            print('user_' + userId +  '.json')
+            with open('user_' + userId +  '.json', 'w') as handler:
+                handler.write(response.text)
+
         if response.status_code != 200:
             response = json.loads(response.text)
             if response["api:statuscode"] == 100: raise exceptions.UnsupportedService
@@ -220,11 +227,15 @@ class Client:
 
     def get_community_info(self, comId: str):
         response = requests.get(f"{self.api}/g/s-x{comId}/community/info?withInfluencerList=1&withTopicList=true&influencerListOrderStrategy=fansCount", headers=headers.Headers().headers)
+        with open('comunnity.json', 'w') as handler:
+                handler.write(response.text)
+        
         if response.status_code != 200:
             response = json.loads(response.text)
             if response["api:statuscode"] == 801: raise exceptions.CommunityNoLongerExists
             elif response["api:statuscode"] == 833: raise exceptions.CommunityDeleted
             else: return response
+
 
         else: return objects.community(json.loads(response.text)["community"]).community
 
@@ -724,8 +735,11 @@ class Client:
         if response.status_code != 200: return json.loads(response.text)
         else: return objects.walletInfo(json.loads(response.text)["wallet"]).walletInfo
 
-    def get_from_code(self, code: str):
+    def get_from_code(self, code: str,save=False):
         response = requests.get(f"{self.api}/g/s/link-resolution?q={code}", headers=headers.Headers().headers)
+        if(save):
+            with open('logs/from_code.json','w') as h:
+                h.write(response.text)
         if response.status_code != 200:
             response = json.loads(response.text)
             if response["api:statuscode"] == 107: raise exceptions.UnexistentData

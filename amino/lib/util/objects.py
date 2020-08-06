@@ -1871,6 +1871,10 @@ class message:
 class messageList:
     def __init__(self, data):
         self.json = data
+
+        for msg in data:
+            if('00000000' in msg['uid'] ):
+                data.remove(msg)
         self.author = userProfileList([msg["author"] for msg in data]).userProfileList
         self.content = []
         self.includedInSummary = []

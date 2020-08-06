@@ -58,6 +58,7 @@ class SocketHandler:
     def close(self):
         self.reconnect = False
         self.active = False
+        self.socket.keep_running = False 
         self.socket.close()
 
 class Callbacks:

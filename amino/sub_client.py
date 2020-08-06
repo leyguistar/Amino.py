@@ -124,13 +124,21 @@ class SubClient(client.Client):
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
-    def check_in(self, tz: str = -timezone // 1000):
+    def check_in(self, tz: str = -timezone // 1000,save=False):
         data = json.dumps({
             "timezone": tz,
             "timestamp": int(timestamp() * 1000)
         })
 
+        #print('post request: ' + f"{self.api}/x{self.comId}/s/check-in")
+        #print('headers: ' + str(headers.Headers(data=data)) )
+        # print('data: ' + str(data) )
+        # print('time: ' + str(int(timestamp() * 1000)))
+        # print('profile: ' + str(profile))
         response = requests.post(f"{self.api}/x{self.comId}/s/check-in", headers=headers.Headers(data=data).headers, data=data)
+        if(save):
+            with open('check_in.json', 'w') as handler:
+                    handler.write(response.text)
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
@@ -144,15 +152,19 @@ class SubClient(client.Client):
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
-    def lottery(self, tz: str = -timezone // 1000):
+    def lottery(self, tz: str = -timezone // 1000,save=False):
         data = json.dumps({
             "timezone": tz,
             "timestamp": int(timestamp() * 1000)
         })
-
         response = requests.post(f"{self.api}/x{self.comId}/s/check-in/lottery", headers=headers.Headers(data=data).headers, data=data)
+        if(save):
+            with open('lottery.json', 'w') as handler:
+                    handler.write(response.text)
+        
         if response.status_code != 200: return json.loads(response.text)
-        else: return objects.lotteryLog(json.loads(response.text)["lotteryLog"]).lotteryLog
+        else: return json.loads(response.text)
+            #return objects.lotteryLog(json.loads(response.text)["lotteryLog"]).lotteryLog
 
     def edit_profile(self, nickname: str = None, content: str = None, icon: str = None, chatRequestPrivilege: str = None, mediaList: list = None, backgroundImage: str = None, backgroundColor: str = None):
         data = {"timestamp": int(timestamp() * 1000)}
@@ -356,9 +368,13 @@ class SubClient(client.Client):
         else: return response.status_code
 
     # TODO : Finish this
-    @property
-    def watch_ad(self):
+    #@property
+    def watch_ad(self,save=False):
         response = requests.post(f"{self.api}/g/s/wallet/ads/video/start", headers=headers.Headers().headers)
+        if(save):
+            with open('logs/ad.json','w') as h:
+                h.write(response.text)
+
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
@@ -406,7 +422,7 @@ class SubClient(client.Client):
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
-    def send_coins(self, coins: int, blogId: str = None, chatId: str = None, objectId: str = None):
+    def send_coins(self, coins: int, blogId: str = None, chatId: str = None, objectId: str = None,save=False):
         lst = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f']
 
         data = {
@@ -416,7 +432,8 @@ class SubClient(client.Client):
             },
             "timestamp": int(timestamp() * 1000)
         }
-
+        print(data)
+        #return
         if chatId: response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/tipping", headers=headers.Headers(data=json.dumps(data)).headers, data=json.dumps(data))
         elif blogId: response = requests.post(f"{self.api}/x{self.comId}/s/blog/{blogId}/tipping", headers=headers.Headers(data=json.dumps(data)).headers, data=json.dumps(data))
         elif objectId:
@@ -426,10 +443,13 @@ class SubClient(client.Client):
             response = requests.post(f"{self.api}/x{self.comId}/s/tipping", headers=headers.Headers(data=data).headers, data=data)
 
         else: raise exceptions.SpecifyType
+        if(save):
+            with open('logs/send_coins.json','w') as h:
+                h.write(response.text)
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
-    def send_coins_visual(self, coins: int, method: int = 0, blogId: str = None, chatId: str = None, objectId: str = None):
+    def send_coins_visual(self, coins: int, method: int = 0, blogId: str = None, chatId: str = None, objectId: str = None,save=False):
         if method == 0: trasId = "00000000-0000-0000-0000-000000000000"
         elif method == 1: trasId = "00000000-0000-0000-0000-000000000001"
         else: trasId = "00000000-0000-0000-0000-000000000002"
@@ -451,6 +471,9 @@ class SubClient(client.Client):
             response = requests.post(f"{self.api}/x{self.comId}/s/tipping", headers=headers.Headers(data=data).headers, data=data)
 
         else: raise exceptions.SpecifyType
+        if(save):
+            with open('logs/send_coins_visual.json','w') as h:
+                h.write(response.text)
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
@@ -469,8 +492,12 @@ class SubClient(client.Client):
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
-    def block(self, userId: str):
+    def block(self, userId: str,save=False):
         response = requests.post(f"{self.api}/x{self.comId}/s/block/{userId}", headers=headers.Headers().headers)
+        if(save):
+            with open('logs/block.json','w') as h:
+                h.write(response.text)
+            print(response.text)
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
@@ -504,7 +531,7 @@ class SubClient(client.Client):
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
-    def send_message(self, chatId: str, message: str = None, messageType: int = 0, filePath = None, replyTo: str = None, mentionUserIds: list = None, stickerId: str = None, embedId: str = None, embedType: int = None, embedLink: str = None, embedTitle: str = None, embedContent: str = None, embedImage: BinaryIO = None):
+    def send_message(self, chatId: str, message: str = None, messageType: int = 0, filePath = None, replyTo: str = None, mentionUserIds: list = None, stickerId: str = None, embedId: str = None, embedType: int = None, embedLink: str = None, embedTitle: str = None, embedContent: str = None, embedImage: BinaryIO = None,save=False,link=None):
         audio_types = ["mp3", "aac", "wav", "ogg", "mkv"]
         image_types = ["png", "jpg", "jpeg", "gif"]
         mentions = []
@@ -512,8 +539,6 @@ class SubClient(client.Client):
             for mention_uid in mentionUserIds:
                 mentions.append({"uid": mention_uid})
 
-        if embedImage:
-            embedImage = [[100, self.upload_media(embedImage), None]]
 
         data = {
             "type": messageType,
@@ -524,8 +549,8 @@ class SubClient(client.Client):
                 "objectType": embedType,
                 "link": embedLink,
                 "title": embedTitle,
-                "content": embedContent,
-                "mediaList": embedImage
+                "content": embedContent
+                #"mediaList": embedImage
             },
             "extensions": {"mentionedArray": mentions},
             "timestamp": int(timestamp() * 1000)
@@ -566,8 +591,22 @@ class SubClient(client.Client):
 
                 data["mediaUploadValue"] = base64.b64encode(file.read()).decode()
 
+        if embedImage:
+            link = self.upload_media(embedImage)
+        if link != None:
+            data["content"] = None
+            data['mediaType'] = 100
+            data['type'] = 0
+            data["mediaValue"] = link
+
+
         data = json.dumps(data)
+
         response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/message", headers=headers.Headers(data=data).headers, data=data)
+        if(save):
+            with open('logs/send.json','w') as s:
+                s.write(response.text)
+
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
@@ -594,12 +633,12 @@ class SubClient(client.Client):
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
-    def edit_chat(self, chatId: str, doNotDisturb: bool = None, pinChat: bool = None, title: str = None, icon: str = None, backgroundImage: str = None, content: str = None, announcement: str = None, coHosts: list = None, keywords: list = None, pinAnnouncement: bool = None, publishToGlobal: bool = None, canTip: bool = None, viewOnly: bool = None, canInvite: bool = None, fansOnly: bool = None):
+    def edit_chat(self, chatId: str, doNotDisturb: bool = None, pinChat: bool = None, title: str = None, icon: str = None, backgroundImage: str = None, content: str = None, announcement: str = None, coHosts: list = None, keywords: list = None, pinAnnouncement: bool = None, publishToGlobal: bool = None, canTip: bool = None, viewOnly: bool = None, canInvite: bool = None, fansOnly: bool = None,save = False):
         data = {
-            "type": 1,
+            # "type": 1,
             "timestamp": int(timestamp() * 1000)
         }
-
+        print("starting edit_chat")
         if title: data["title"] = title
         if content: data["content"] = content
         if icon: data["icon"] = icon
@@ -608,100 +647,178 @@ class SubClient(client.Client):
         if pinAnnouncement: data["extensions"] = {"pinAnnouncement": pinAnnouncement}
         if fansOnly: data["extensions"] = {"fansOnly": fansOnly}
 
-        if publishToGlobal: data["publishToGlobal"] = 0
-        if not publishToGlobal: data["publishToGlobal"] = 1
-
+        # if publishToGlobal: data["publishToGlobal"] = 0
+        # if not publishToGlobal: data["publishToGlobal"] = 1
+        # data["extensions"] = {"pinAnnouncement": 0}
+        # data["extensions"] = {"announcement": 'cambiando anuncio'}
+        # data["announcement"] = "cambiando anuncio"
+        # data["title"] = 'probando'
+        # data = json.dumps(data)
+        #data = json.dumps({"extensions": {"announcement": 'cambiando anuncio'}, "timestamp": int(timestamp() * 1000)})
+        # data = json.dumps({"title": "probando", "timestamp": int(timestamp() * 1000)})
+        
+        # ur = f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/member/{self.profile.id}/title"
+        # print('post request: ' + ur)
+        # print('headers: ' + str(headers.Headers(data=data)) )
+        # print('data: ' + str(data) )
+        # response = requests.post(ur, headers=headers.Headers(data=data).headers, data=data)
+        # if response.status_code != 200:
+        #     print('segun ike error')
+        # with open('logs/test.json','w') as h:
+        #     h.write(response.text)
+        
+        # ur2 = f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/title"
+        # print('post request: ' + ur2)
+        # print('headers: ' + str(headers.Headers(data=data)) )
+        # print('data: ' + str(data) )
+        # response = requests.post(ur, headers=headers.Headers(data=data).headers, data=data)
+        # if response.status_code != 200:
+        #     print('segun ike error')
+        # with open('logs/testA.json','w') as h:
+        #     h.write(response.text)
+        
+        # print(1)
         if doNotDisturb:
+
             data = json.dumps({"alertOption": 2, "timestamp": int(timestamp() * 1000)})
             response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/member/{self.profile.id}/alert", data=data, headers=headers.Headers(data=data).headers)
             if response.status_code != 200: return json.loads(response.text)
             else: pass
-
+            print(2)
+        
         if not doNotDisturb:
+
             data = json.dumps({"alertOption": 1, "timestamp": int(timestamp() * 1000)})
             response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/member/{self.profile.id}/alert", data=data, headers=headers.Headers(data=data).headers)
+            if(save):
+                print('post request: ' + f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/member/{self.profile.id}/alert")
+                print('headers: ' + str(headers.Headers(data=data)) )
+                print('data: ' + str(data) )
+                with open('logs/alert.json','w') as h:
+                    h.write(response.text)
             if response.status_code != 200: return json.loads(response.text)
             else: pass
+            print(3)
 
         if pinChat:
             response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/pin", headers=headers.Headers().headers)
             if response.status_code != 200: return json.loads(response.text)
             else: pass
+            print(4)
 
         if not pinChat:
             response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/unpin", headers=headers.Headers().headers)
             if response.status_code != 200: return json.loads(response.text)
             else: pass
+            print(5)
 
         if backgroundImage:
+
+
             data = json.dumps({"media": [100, backgroundImage, None], "timestamp": int(timestamp() * 1000)})
             response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/member/{self.profile.id}/background", data=data, headers=headers.Headers(data=data).headers)
+            if(save):
+                print('post request: ' + f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/member/{self.profile.id}/background")
+                print('headers: ' + str(headers.Headers(data=data)) )
+                print('data: ' + str(data) )
+                with open('logs/background.json','w') as h:
+                    h.write(response.text)
+            
             if response.status_code != 200: return json.loads(response.text)
             else: pass
+            print(6)
 
         if coHosts:
             data = json.dumps({"uidList": coHosts, "timestamp": int(timestamp() * 1000)})
             response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/co-host", data=data, headers=headers.Headers(data=data).headers)
             if response.status_code != 200: return json.loads(response.text)
             else: pass
+            print(7)
 
-        if not viewOnly:
-            response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/view-only/disable", headers=headers.Headers(data=data).headers)
-            if response.status_code != 200: return json.loads(response.text)
-            else: pass
+        # if not viewOnly:
+        #     response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/view-only/disable", headers=headers.Headers(data=data).headers)
+        #     if response.status_code != 200: return json.loads(response.text)
+        #     else: pass
+        #print(8)
 
-        if viewOnly:
-            response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/view-only/enable", headers=headers.Headers(data=data).headers)
-            if response.status_code != 200: return json.loads(response.text)
-            else: pass
+        # if viewOnly:
+        #     response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/view-only/enable", headers=headers.Headers(data=data).headers)
+        #     if response.status_code != 200: return json.loads(response.text)
+        #     else: pass
+       # print(9)
 
-        if not canInvite:
-            response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/members-can-invite/disable", headers=headers.Headers(data=data).headers)
-            if response.status_code != 200: return json.loads(response.text)
-            else: pass
+        # if not canInvite:
+        #     response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/members-can-invite/disable", headers=headers.Headers(data=data).headers)
+        #     if response.status_code != 200: return json.loads(response.text)
+        #     else: pass
+        #print(10)
 
-        if canInvite:
-            response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/members-can-invite/enable", headers=headers.Headers(data=data).headers)
-            if response.status_code != 200: return json.loads(response.text)
-            else: pass
+        # if canInvite:
+        #     response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/members-can-invite/enable", headers=headers.Headers(data=data).headers)
+        #     if response.status_code != 200: return json.loads(response.text)
+        #     else: pass
+        #print(11)
 
-        if not canTip:
-            response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/tipping-perm-status/disable", headers=headers.Headers(data=data).headers)
-            if response.status_code != 200: return json.loads(response.text)
-            else: pass
+        # if not canTip:
+        #     response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/tipping-perm-status/disable", headers=headers.Headers(data=data).headers)
+        #     if response.status_code != 200: return json.loads(response.text)
+        #     else: pass
+        #print(12)
 
-        if canTip:
-            response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/tipping-perm-status/enable", headers=headers.Headers(data=data).headers)
-            if response.status_code != 200: return json.loads(response.text)
-            else: pass
+        # if canTip:
+        #     response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/tipping-perm-status/enable", headers=headers.Headers(data=data).headers)
+        #     if response.status_code != 200: return json.loads(response.text)
+        #     else: pass
+        #print('final')
 
         data = json.dumps(data)
+
+        print('post request: ' + f"{self.api}/x{self.comId}/s/chat/thread/{chatId}")
+        print('headers: ' + str(headers.Headers(data=data)) )
+        print('data: ' + str(data) )
+
+
         response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}", headers=headers.Headers(data=data).headers, data=data)
+        if(save):
+            with open('logs/edit.json','w') as h:
+                h.write(response.text)
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
-    def transfer_host(self, chatId: str, userIds: list):
+    def transfer_host(self, chatId: str, userIds: list,save=False):
         data = json.dumps({
             "uidList": userIds,
             "timestamp": int(timestamp() * 1000)
+            # "ndcId": 24556432
         })
 
         response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/transfer-organizer", headers=headers.Headers().headers, data=data)
+        if(save):
+            with open('logs/transfer.json','w') as h:
+                h.write(response.text)
+                print(response.text)
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
     def transfer_organizer(self, chatId: str, userIds: list):
         self.transfer_host(chatId, userIds)
 
-    def kick(self, userId: str, chatId: str, allowRejoin: bool = True):
+    def kick(self, userId: str, chatId: str, allowRejoin: bool = True,save=False):
         if allowRejoin: allowRejoin = 1
         if not allowRejoin: allowRejoin = 0
         response = requests.delete(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/member/{userId}?allowRejoin={allowRejoin}", headers=headers.Headers().headers)
+        if(save):
+            with open('logs/kick.json','w') as h:
+                h.write(response.text)
+            print(response.text)
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
-    def join_chat(self, chatId: str):
+    def join_chat(self, chatId: str,save=False):
         response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/member/{self.profile.id}", headers=headers.Headers().headers)
+        if(save):
+            with open('logs/join.json','w') as h:
+                h.write(response.text)
         if response.status_code != 200: return json.loads(response.text)
         else: return response.status_code
 
@@ -745,13 +862,16 @@ class SubClient(client.Client):
         else: return response.status_code
 
     # Get requests
-    def get_all_users(self, type: str = "recent", start: int = 0, size: int = 25):
+    def get_all_users(self, type: str = "recent", start: int = 0, size: int = 25,save=False):
         if type == "recent": response = requests.get(f"{self.api}/x{self.comId}/s/user-profile?type=recent&start={start}&size={size}", headers=headers.Headers().headers)
         elif type == "banned": response = requests.get(f"{self.api}/x{self.comId}/s/user-profile?type=banned&start={start}&size={size}", headers=headers.Headers().headers)
         elif type == "featured": response = requests.get(f"{self.api}/x{self.comId}/s/user-profile?type=featured&start={start}&size={size}", headers=headers.Headers().headers)
         elif type == "leaders": response = requests.get(f"{self.api}/x{self.comId}/s/user-profile?type=leaders&start={start}&size={size}", headers=headers.Headers().headers)
         elif type == "curators": response = requests.get(f"{self.api}/x{self.comId}/s/user-profile?type=curators&start={start}&size={size}", headers=headers.Headers().headers)
         else: raise exceptions.SpecifyType
+        if(save):
+            with open('logs/users.json','w') as h:
+                h.write(response.text)
         if response.status_code != 200: return json.loads(response.text)
         return objects.userProfileCountList(json.loads(response.text)).userProfileCountList
 
@@ -765,9 +885,16 @@ class SubClient(client.Client):
         if response.status_code != 200: return json.loads(response.text)
         return objects.userProfileCountList(json.loads(response.text)).userProfileCountList
 
-    def get_user_info(self, userId: str):
+    def get_user_info(self, userId: str,save = False):
+        
         response = requests.get(f"{self.api}/x{self.comId}/s/user-profile/{userId}", headers=headers.Headers().headers)
         if response.status_code != 200: return json.loads(response.text)
+        if(save):
+            print("Writting user info")
+            print('user_' + userId +  '.json')
+            with open('user_' + userId +  '.json', 'w') as handler:
+                handler.write(response.text)
+        
         return objects.userProfile(json.loads(response.text)["userProfile"]).userProfile
 
     def get_user_following(self, userId: str, start: int = 0, size: int = 25):
@@ -851,17 +978,29 @@ class SubClient(client.Client):
         if response.status_code != 200: return json.loads(response.text)
         return objects.wikiCategory(json.loads(response.text)).wikiCategory
 
-    def get_tipped_users(self, blogId: str = None, wikiId: str = None, chatId: str = None, start: int = 0, size: int = 25):
+    def get_tipped_users(self, blogId: str = None, wikiId: str = None, chatId: str = None, start: int = 0, size: int = 25,save=False):
         if blogId: response = requests.get(f"{self.api}/x{self.comId}/s/blog/{blogId}/tipping/tipped-users-summary?start={start}&size={size}", headers=headers.Headers().headers)
         elif wikiId: response = requests.get(f"{self.api}/x{self.comId}/s/item/{wikiId}/tipping/tipped-users-summary?start={start}&size={size}", headers=headers.Headers().headers)
         elif chatId: response = requests.get(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/tipping/tipped-users-summary?start={start}&size={size}", headers=headers.Headers().headers)
         else: raise exceptions.SpecifyType
+        if(save):
+            with open('logs/tipped_users.json','w') as h:
+                h.write(response.text)
         if response.status_code != 200: return json.loads(response.text)
         return objects.tippedUsersSummary(json.loads(response.text)).tippedUsersSummary
 
-    def get_chat_threads(self, start: int = 0, size: int = 25):
+    def get_chat_threads(self, start: int = 0, size: int = 25,save=False):
         response = requests.get(f"{self.api}/x{self.comId}/s/chat/thread?type=joined-me&start={start}&size={size}", headers=headers.Headers().headers)
-        if response.status_code != 200: return json.loads(response.text)
+        if response.status_code != 200: 
+            if(save):
+                print('Writting not successful result')
+                with open('result.json', 'w') as handler:
+                    handler.write(response.text)
+            return json.loads(response.text)
+        if(save):
+            print("Writting ThreadList")
+            with open('logs/threadList.json', 'w') as handler:
+                handler.write(response.text)
         return objects.threadList(json.loads(response.text)["threadList"]).threadList
 
     def get_public_chat_threads(self, type: str = "recommended", start: int = 0, size: int = 25):
@@ -869,18 +1008,32 @@ class SubClient(client.Client):
         if response.status_code != 200: return json.loads(response.text)
         return objects.threadList(json.loads(response.text)["threadList"]).threadList
 
-    def get_chat_thread(self, chatId: str):
+    def get_chat_thread(self, chatId: str,save = False):
         response = requests.get(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}", headers=headers.Headers().headers)
+        if(save):
+            print("Writting Thread")
+            with open('logs/chatthread.json', 'w') as handler:
+                handler.write(response.text)
+        #print(response.text)
         if response.status_code != 200: return json.loads(response.text)
         return objects.thread(json.loads(response.text)["thread"]).thread
 
-    def get_chat_messages(self, chatId: str, size: int = 25):
+    def get_chat_messages(self, chatId: str, size: int = 25,save = False):
         response = requests.get(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/message?v=2&pagingType=t&size={size}", headers=headers.Headers().headers)
+        if(save):
+            print("Writting Messages")
+            with open('logs/chatMessages.json', 'w') as handler:
+                handler.write(response.text)
+        #print(response.text)
         if response.status_code != 200: return json.loads(response.text)
         return objects.messageList(json.loads(response.text)["messageList"]).messageList
 
-    def get_message_info(self, chatId: str, messageId: str):
+    def get_message_info(self, chatId: str, messageId: str,save=False):
         response = requests.get(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/message/{messageId}", headers=headers.Headers().headers)
+        if(save):
+            with open('logs/message.json','w') as h:
+                h.write(response.text)
+
         if response.status_code != 200: return json.loads(response.text)
         return objects.message(json.loads(response.text)["message"]).message
 
@@ -932,8 +1085,11 @@ class SubClient(client.Client):
         if response.status_code != 200: return json.loads(response.text)
         return objects.userProfileList(json.loads(response.text)["memberList"]).userProfileList
 
-    def get_notifications(self, start: int = 0, size: int = 25):
+    def get_notifications(self, start: int = 0, size: int = 25,save=False):
         response = requests.get(f"{self.api}/x{self.comId}/s/notification?pagingType=t&start={start}&size={size}", headers=headers.Headers().headers)
+        if(save):
+            with open('logs/notifications.json','w') as h:
+                h.write(response.text)
         if response.status_code != 200: return json.loads(response.text)
         return objects.notificationList(json.loads(response.text)["notificationList"]).notificationList
 
@@ -1069,11 +1225,11 @@ class SubClient(client.Client):
         if response.status_code == 200: return response.status_code
         else: return json.loads(response.text)
 
-    def hide(self, userId: str = None, chatId: str = None, blogId: str = None, wikiId: str = None, reason: str = None):
+    def hide(self, userId: str = None, chatId: str = None, blogId: str = None, wikiId: str = None, reason: str = None,save=False):
         data = {
-            "adminOpNote": {
-                "content": reason
-            },
+            # "adminOpNote": {
+            #     "content": reason
+            # },
             "timestamp": int(timestamp() * 1000)
         }
 
@@ -1101,14 +1257,17 @@ class SubClient(client.Client):
             response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/admin", headers=headers.Headers(data=data).headers, data=data)
 
         else: raise exceptions.SpecifyType
+        if(save):
+            with open('logs/hide.json','w') as h:
+                h.write(response.text)
         if response.status_code == 200: return response.status_code
         else: return json.loads(response.text)
 
-    def unhide(self, userId: str = None, chatId: str = None, blogId: str = None, wikiId: str = None, reason: str = None):
+    def unhide(self, userId: str = None, chatId: str = None, blogId: str = None, wikiId: str = None, reason: str = None,save=False):
         data = {
-            "adminOpNote": {
-                "content": reason
-            },
+            # "adminOpNote": {
+            #     "content": reason
+            # },
             "timestamp": int(timestamp() * 1000)
         }
 
@@ -1132,10 +1291,14 @@ class SubClient(client.Client):
         elif chatId:
             data["adminOpName"] = 110
             data["adminOpValue"] = 0
-            data = json.dumps(data)
-            response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/admin", headers=headers.Headers(data=data).headers, data=data)
-
+            datajson = json.dumps(data)
+            print(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/admin")
+            response = requests.post(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/admin", headers=headers.Headers(data=datajson).headers, data=datajson)
         else: raise exceptions.SpecifyType
+        if(save):
+            with open('logs/unhide.json','w') as h:
+                h.write(response.text)
+                print(response.text)
         if response.status_code == 200: return response.status_code
         else: return json.loads(response.text)
 
@@ -1158,7 +1321,7 @@ class SubClient(client.Client):
         else: return json.loads(response.text)
 
     # TODO : List all warning texts
-    def warn(self, userId: str, reason: str = None):
+    def warn(self, userId: str, reason: str = None,save=False):
         data = json.dumps({
             "uid": userId,
             "title": "Custom",
@@ -1174,6 +1337,9 @@ class SubClient(client.Client):
         })
 
         response = requests.post(f"{self.api}/x{self.comId}/s/notice", headers=headers.Headers(data=data).headers, data=data)
+        if(save):
+            with open('logs/warn.json','w') as h:
+                h.write(response.text)
         if response.status_code == 200: return response.status_code
         else: return json.loads(response.text)
 
@@ -1218,7 +1384,7 @@ class SubClient(client.Client):
         if response.status_code == 200: return response.status_code
         else: return json.loads(response.text)
 
-    def unban(self, userId: str, reason: str):
+    def unban(self, userId: str, reason: str,save=False):
         data = json.dumps({
             "note": {
                 "content": reason
@@ -1227,6 +1393,9 @@ class SubClient(client.Client):
         })
 
         response = requests.post(f"{self.api}/x{self.comId}/s/user-profile/{userId}/unban", headers=headers.Headers(data=data).headers, data=data)
+        if(save):
+            with open('logs/unban.json','w') as h:
+                h.write(response.text)
         if response.status_code == 200: return response.status_code
         else: return json.loads(response.text)
 
@@ -1240,8 +1409,11 @@ class SubClient(client.Client):
         if response.status_code == 200: return response.status_code
         else: return json.loads(response.text)
 
-    def get_banned_users(self, start: int = 0, size: int = 25):
+    def get_banned_users(self, start: int = 0, size: int = 25,save=False):
         response = requests.get(f"{self.api}/x{self.comId}/s/user-profile?type=banned&start={start}&size={size}", headers=headers.Headers().headers)
+        if(save):
+            with open('logs/banned.json','w') as h:
+                h.write(response.text)
         if response.status_code != 200: return json.loads(response.text)
         return objects.userProfileCountList(json.loads(response.text)).userProfileCountList
 
