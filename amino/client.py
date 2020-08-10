@@ -168,10 +168,16 @@ class Client:
         response = requests.post(f"{self.api}/g/s/device", headers=headers.Headers(data=data).headers, data=data)
         if response.status_code == 200: self.configured = True
 
-    def upload_media(self, file: BinaryIO = None,data=None):
+    def upload_media(self, file: BinaryIO = None,data=None,video=False,save=False):
         if(data==None):
             data = file.read()
-        response = requests.post(f"{self.api}/g/s/media/upload", data=data, headers=headers.Headers(type=f"image/jpg", data=data).headers)
+        if(video):
+            response = requests.post(f"{self.api}/g/s/media/upload", data=data, headers=headers.Headers(type=f"", data=data).headers)
+        else:
+            response = requests.post(f"{self.api}/g/s/media/upload", data=data, headers=headers.Headers(type=f"image/jpg", data=data).headers)
+        if(save):
+            with open('logs/upload.json','w') as h:
+                h.write(response.text)
         if response.status_code != 200:
             response = json.loads(response.text)
             if response["api:statuscode"] == 300: raise exceptions.BadImage

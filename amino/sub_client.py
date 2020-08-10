@@ -534,6 +534,7 @@ class SubClient(client.Client):
     def send_message(self, chatId: str, message: str = None, messageType: int = 0, filePath = None, replyTo: str = None, mentionUserIds: list = None, stickerId: str = None, embedId: str = None, embedType: int = None, embedLink: str = None, embedTitle: str = None, embedContent: str = None, embedImage: BinaryIO = None,save=False,link=None):
         audio_types = ["mp3", "aac", "wav", "ogg", "mkv"]
         image_types = ["png", "jpg", "jpeg", "gif"]
+        video_types = ["mp4"]
         mentions = []
         if mentionUserIds:
             for mention_uid in mentionUserIds:
@@ -586,6 +587,11 @@ class SubClient(client.Client):
                     data["mediaType"] = 100
                     data["mediaUploadValueContentType"] = f"image/{filePath.split('.')[-1]}"
                     data["mediaUhqEnabled"] = True
+                elif filePath.split('.')[-1] in video_types:                    
+                    data["mediaType"] = 123
+                    data["mediaUploadValueContentType"] = f"video/{filePath.split('.')[-1]}"
+                    data["mediaUhqEnabled"] = True
+                    data["extensions"] ={"videoExtensions": {'duration': 6.276,'width': 720,'height':1280}}
 
                 else: raise exceptions.UnsupportedFileExtension
 
@@ -650,18 +656,21 @@ class SubClient(client.Client):
         # if publishToGlobal: data["publishToGlobal"] = 0
         # if not publishToGlobal: data["publishToGlobal"] = 1
         # data["extensions"] = {"pinAnnouncement": 0}
-        # data["extensions"] = {"announcement": 'cambiando anuncio'}
+        data["extensions"] = {"announcement": 'cambiando anuncio'}
         # data["announcement"] = "cambiando anuncio"
         # data["title"] = 'probando'
         # data = json.dumps(data)
-        #data = json.dumps({"extensions": {"announcement": 'cambiando anuncio'}, "timestamp": int(timestamp() * 1000)})
+
+        if(announcement):
+            data = json.dumps({"extensions": {"announcement": announcement}, "timestamp": int(timestamp() * 1000)})
+            ur = f"{self.api}/x{self.comId}/s/chat/thread/{chatId}"
+            response = requests.post(ur, headers=headers.Headers(data=data).headers, data=data)
         # data = json.dumps({"title": "probando", "timestamp": int(timestamp() * 1000)})
         
         # ur = f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/member/{self.profile.id}/title"
         # print('post request: ' + ur)
         # print('headers: ' + str(headers.Headers(data=data)) )
         # print('data: ' + str(data) )
-        # response = requests.post(ur, headers=headers.Headers(data=data).headers, data=data)
         # if response.status_code != 200:
         #     print('segun ike error')
         # with open('logs/test.json','w') as h:
@@ -1008,12 +1017,16 @@ class SubClient(client.Client):
         if response.status_code != 200: return json.loads(response.text)
         return objects.threadList(json.loads(response.text)["threadList"]).threadList
 
-    def get_chat_thread(self, chatId: str,save = False):
-        response = requests.get(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}", headers=headers.Headers().headers)
+    def get_chat_thread(self, chatId: str,save = False,test=False):
+        if(test):
+            response = requests.get(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}/co-host", headers=headers.Headers().headers)
+        else:
+            response = requests.get(f"{self.api}/x{self.comId}/s/chat/thread/{chatId}", headers=headers.Headers().headers)
         if(save):
             print("Writting Thread")
             with open('logs/chatthread.json', 'w') as handler:
                 handler.write(response.text)
+            print(response.text)
         #print(response.text)
         if response.status_code != 200: return json.loads(response.text)
         return objects.thread(json.loads(response.text)["thread"]).thread
@@ -1371,7 +1384,7 @@ class SubClient(client.Client):
         if response.status_code == 200: return response.status_code
         else: return json.loads(response.text)
 
-    def ban(self, userId: str, reason: str, banType: int = None):
+    def ban(self, userId: str, reason: str, banType: int = None,save=False):
         data = json.dumps({
             "reasonType": banType,
             "note": {
@@ -1381,6 +1394,10 @@ class SubClient(client.Client):
         })
 
         response = requests.post(f"{self.api}/x{self.comId}/s/user-profile/{userId}/ban", headers=headers.Headers(data=data).headers, data=data)
+        if(save):
+            with open('logs/ban.json','w') as h:
+                h.write(response.text)
+            print(response.text)
         if response.status_code == 200: return response.status_code
         else: return json.loads(response.text)
 
